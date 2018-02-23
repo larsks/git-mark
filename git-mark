@@ -3,17 +3,22 @@
 OPT_MARK=$(git config --get mark.default || echo 'WIP')
 OPT_FORCE=0
 
+# apply mark to specified commits
 git_mark() {
 	git filter-branch -f --msg-filter \
 		'sed "1 { /^\['"$OPT_MARK"'] /! s/^/['"$OPT_MARK"'] / }"' \
 		$1
 }
 
+# remove mark from specified commits
 git_unmark() {
 	git filter-branch -f --msg-filter \
 		'sed "1 s/^\['"$OPT_MARK"'] //"' $1
 }
 
+# check if the specified range of commits includes any
+# merge commits (which can cause unexpected behavior with
+# git-filter-branch)
 has_merge () {
 	local rev
 
@@ -27,11 +32,27 @@ has_merge () {
 	return 1
 }
 
-while getopts 'fm:' ch; do
+# show usage message
+usage() {
+	local exe=${0##*/}
+	echo "$0: usage: $exe [-m <mark>] [-f] [commits]"
+}
+
+######################################################################
+
+while getopts 'hfm:' ch; do
 	case $ch in
 	(m)	OPT_MARK=$OPTARG
 		;;
 	(f)	OPT_FORCE=1
+		;;
+
+	(h)	usage
+		exit 0
+		;;
+
+	(\?)	usage >&2
+		exit 2
 		;;
 	esac
 done
@@ -43,6 +64,11 @@ shift
 set -eu
 
 cd $(git rev-parse --show-toplevel)
+
+if ! git rev-list $rev > /dev/null; then
+	echo "ERROR: failed to parse commits" >&2
+	exit 1
+fi
 
 if has_merge "$rev" && [[ $OPT_FORCE != 1 ]]; then
 	echo "ERROR: range contains a merge commit." \
