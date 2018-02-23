@@ -23,6 +23,14 @@ Once the change is ready for merging, the `[WIP]` tag is removed.
 
 The `git-mark` and `git-unmark` commands automate this process.
 
+**WARNING**
+
+The `git-mark` command operates by calling `git filter-branch`.  This
+will change the commit id of any commit that it edits.  It is suitable
+for in-progress pull requests or gerrit changes, but because it
+modifies your project history you want to be careful about running it
+against your `master` branch.
+
 ## Using git-mark
 
 To add the `[WIP]` tag to to the most recent commit, just run:
