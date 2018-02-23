@@ -4,20 +4,20 @@ OPT_MARK=$(git config --get mark.default || echo 'WIP')
 OPT_FORCE=0
 
 git_mark() {
-	exec git filter-branch -f --msg-filter \
+	git filter-branch -f --msg-filter \
 		'sed "1 { /^\['"$OPT_MARK"'] /! s/^/['"$OPT_MARK"'] / }"' \
-		"${1:-HEAD^..}"
+		$1
 }
 
 git_unmark() {
-	exec git filter-branch -f --msg-filter \
-		'sed "1 s/^\['"$OPT_MARK"'] //"' "${1:-HEAD^..}"
+	git filter-branch -f --msg-filter \
+		'sed "1 s/^\['"$OPT_MARK"'] //"' $1
 }
 
 has_merge () {
 	local rev
 
-	for rev in $(git rev-list "${1:-HEAD^..}"); do
+	for rev in $(git rev-list $1); do
 		if (( $(git rev-list --no-walk --count --merges $rev) )); then
 			echo "ERROR: $rev is a merge commit" >&2
 			return 0
@@ -40,6 +40,8 @@ shift $(( $OPTIND - 1 ))
 rev=${1:-"HEAD^.."}
 shift
 
+set -eu
+
 cd $(git rev-parse --show-toplevel)
 
 if has_merge "$rev" && [[ $OPT_FORCE != 1 ]]; then
@@ -55,3 +57,5 @@ case $0 in
 			exit 1
 			;;
 esac
+
+git log --oneline --no-decorate $rev
