@@ -1,31 +1,56 @@
 #!/bin/bash
 
 OPT_MARK=$(git config --get mark.default || echo 'WIP')
+OPT_FORCE=0
 
 git_mark() {
 	exec git filter-branch -f --msg-filter \
 		'sed "1 { /^\['"$OPT_MARK"'] /! s/^/['"$OPT_MARK"'] / }"' \
-		"${@:-HEAD^..}"
+		"${1:-HEAD^..}"
 }
 
 git_unmark() {
 	exec git filter-branch -f --msg-filter \
-		'sed "1 s/^\['"$OPT_MARK"'] //"' "${@:-HEAD^..}"
+		'sed "1 s/^\['"$OPT_MARK"'] //"' "${1:-HEAD^..}"
 }
 
-while getopts 'm:' ch; do
+has_merge () {
+	local rev
+
+	for rev in $(git rev-list "${1:-HEAD^..}"); do
+		if (( $(git rev-list --no-walk --count --merges $rev) )); then
+			echo "ERROR: $rev is a merge commit" >&2
+			return 0
+		fi
+	done
+
+	return 1
+}
+
+while getopts 'fm:' ch; do
 	case $ch in
 	(m)	OPT_MARK=$OPTARG
+		;;
+	(f)	OPT_FORCE=1
 		;;
 	esac
 done
 shift $(( $OPTIND - 1 ))
 
+rev=${1:-"HEAD^.."}
+shift
+
 cd $(git rev-parse --show-toplevel)
 
+if has_merge "$rev" && [[ $OPT_FORCE != 1 ]]; then
+	echo "ERROR: range contains a merge commit." \
+		"Use -f if you really mean it." >&2
+	exit 1
+fi
+
 case $0 in
-	(*git-mark)	git_mark "$@";;
-	(*git-unmark)	git_unmark "$@";;
+	(*git-mark)	git_mark "$rev";;
+	(*git-unmark)	git_unmark "$rev";;
 	(*)		echo "ERROR: don't know what to do." >&2
 			exit 1
 			;;
